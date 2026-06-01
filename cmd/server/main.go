@@ -28,6 +28,18 @@ func main() {
 	}
 	defer publishCh.Close()
 
+	_, queue, err := pubsub.DeclareAndBind(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug,
+		routing.GameLogSlug+".*",
+		pubsub.SimpleQueueTypeDurable,
+	)
+	if err != nil {
+		log.Fatal("Failed to declare and bind queue:", err)
+	}
+	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
+
 	// Print server help
 	gamelogic.PrintServerHelp()
 
