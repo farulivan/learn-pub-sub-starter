@@ -73,7 +73,7 @@ func main() {
 
 			fmt.Println("Resume message sent!")
 		case "quit":
-			fmt.Println("Exiting the game...")
+			gamelogic.PrintQuit()
 			return
 		default:
 			fmt.Println("Unknown command:", firstWord)
