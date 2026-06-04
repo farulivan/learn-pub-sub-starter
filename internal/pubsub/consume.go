@@ -1,6 +1,7 @@
 package pubsub
 
 import (
+	"encoding/json"
 	"fmt"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -12,6 +13,40 @@ const (
 	SimpleQueueTypeDurable SimpleQueueType = iota
 	SimpleQueueTypeTransient
 )
+
+func SubscribeJSON[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType, // an enum to represent "durable" or "transient"
+	handler func(T),
+) error {
+	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	if err != nil {
+		return err
+	}
+
+	messages, err := ch.Consume(queue.Name, "", false, false, false, false, nil)
+	if err != nil {
+		return fmt.Errorf("failed to consume messages: %w", err)
+	}
+
+	go func() {
+		defer ch.Close()
+		for msg := range messages {
+			var target T
+			err := json.Unmarshal(msg.Body, &target)
+			if err != nil {
+				continue
+			}
+			handler(target)
+			msg.Ack(false)
+		}
+	}()
+
+	return nil
+}
 
 func DeclareAndBind(
 	conn *amqp.Connection,
