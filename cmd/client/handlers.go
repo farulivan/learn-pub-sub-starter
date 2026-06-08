@@ -40,7 +40,7 @@ func handlerMove(gs *gamelogic.GameState, publishCh *amqp091.Channel) func(gamel
 				fmt.Println("error: failed to publish war recognition:", err)
 				return pubsub.NackRequeue
 			}
-			return pubsub.NackRequeue
+			return pubsub.Ack
 		}
 		fmt.Println("error: unknown move outcome")
 		return pubsub.NackDiscard
