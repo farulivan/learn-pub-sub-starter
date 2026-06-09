@@ -1,6 +1,8 @@
 package pubsub
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 
@@ -22,15 +24,16 @@ const (
 	SimpleQueueTypeTransient
 )
 
-func SubscribeJSON[T any](
+func subscribe[T any](
 	conn *amqp.Connection,
 	exchange,
 	queueName,
 	key string,
-	queueType SimpleQueueType, // an enum to represent "durable" or "transient"
+	simpleQueueType SimpleQueueType,
 	handler func(T) AckType,
+	unmarshaller func([]byte) (T, error),
 ) error {
-	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, simpleQueueType)
 	if err != nil {
 		return err
 	}
@@ -43,12 +46,11 @@ func SubscribeJSON[T any](
 	go func() {
 		defer ch.Close()
 		for msg := range messages {
-			var target T
-			err := json.Unmarshal(msg.Body, &target)
+			networkMessage, err := unmarshaller(msg.Body)
 			if err != nil {
 				continue
 			}
-			ackType := handler(target)
+			ackType := handler(networkMessage)
 			switch ackType {
 			case Ack:
 				msg.Ack(false)
@@ -61,6 +63,54 @@ func SubscribeJSON[T any](
 	}()
 
 	return nil
+}
+
+func SubscribeJSON[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType, // an enum to represent "durable" or "transient"
+	handler func(T) AckType,
+) error {
+	return subscribe(
+		conn,
+		exchange,
+		queueName,
+		key,
+		queueType,
+		handler,
+		func(body []byte) (T, error) {
+			var target T
+			err := json.Unmarshal(body, &target)
+			return target, err
+		},
+	)
+}
+
+func SubscribeGob[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType, // an enum to represent "durable" or "transient"
+	handler func(T) AckType,
+) error {
+	return subscribe(
+		conn,
+		exchange,
+		queueName,
+		key,
+		queueType,
+		handler,
+		func(body []byte) (T, error) {
+			var target T
+			buffer := bytes.NewBuffer(body)
+			decoder := gob.NewDecoder(buffer)
+			err := decoder.Decode(&target)
+			return target, err
+		},
+	)
 }
 
 func DeclareAndBind(

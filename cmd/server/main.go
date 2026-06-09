@@ -28,17 +28,18 @@ func main() {
 	}
 	defer publishCh.Close()
 
-	_, queue, err := pubsub.DeclareAndBind(
+	err = pubsub.SubscribeGob(
 		conn,
 		routing.ExchangePerilTopic,
 		routing.GameLogSlug,
 		routing.GameLogSlug+".*",
 		pubsub.SimpleQueueTypeDurable,
+		handleLogs(),
 	)
 	if err != nil {
-		log.Fatal("Failed to declare and bind queue:", err)
+		log.Fatal("Failed to subscribe to queue:", err)
 	}
-	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
+	fmt.Println("Subscribed to game log queue!")
 
 	// Print server help
 	gamelogic.PrintServerHelp()
