@@ -38,6 +38,11 @@ func subscribe[T any](
 		return err
 	}
 
+	err = ch.Qos(10, 0, false)
+	if err != nil {
+		return fmt.Errorf("failed to set QoS: %w", err)
+	}
+
 	messages, err := ch.Consume(queue.Name, "", false, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("failed to consume messages: %w", err)
